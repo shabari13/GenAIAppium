@@ -1,0 +1,5 @@
+package utils;
+
+public enum LocatorStrategy {
+    ID, XPATH, ACCESSIBILITY_ID, VISUAL, CLASS_NAME, UISELECTOR, ANDROID_UIAUTOMATOR
+}

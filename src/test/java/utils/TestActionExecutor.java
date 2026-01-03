@@ -1,0 +1,278 @@
+package utils;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.appium.java_client.AppiumBy;
+import io.appium.java_client.AppiumDriver;
+import io.appium.java_client.MobileBy;
+import io.appium.java_client.PerformsTouchActions;
+import io.appium.java_client.TouchAction;
+import io.appium.java_client.touch.offset.PointOption;
+import org.openqa.selenium.By;
+import org.openqa.selenium.Point;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.Assert;
+import io.appium.java_client.touch.WaitOptions;
+import org.openqa.selenium.Dimension;
+
+import java.time.Duration;
+
+
+public class TestActionExecutor {
+    private final AppiumDriver driver;
+    private final ObjectMapper objectMapper;
+
+    public TestActionExecutor(AppiumDriver driver) {
+        this.driver = driver;
+        this.objectMapper = new ObjectMapper();
+    }
+
+    public void executeAction(TestAction action) {
+       /* WebElement element = findElement(action);
+
+        switch(action.getActionType()) {
+            case CLICK:
+                element.click();
+                break;
+            case SENDKEYS:
+                element.sendKeys(action.getInputValue());
+                break;
+            case VERIFY:
+                Assert.assertTrue(element.isDisplayed());
+                break;
+            case SWIPE:
+                performSwipe(action);
+                break;
+        }*/
+        int maxRetries = 1;
+        long waitBetweenRetries = 1000;
+        Exception lastException = null;
+
+        System.out.println("Executing action: " + action);
+
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+                if (action.getLocatorStrategy() == LocatorStrategy.VISUAL) {
+                    handleVisualAction(action);
+                    return;
+                } else {
+                    // Handle DOM-based strategies
+                    By locator = getBy(action.getLocatorStrategy(), action.getLocatorValue());
+                    WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+
+                    // Ensure element is visible and clickable
+                    wait.until(ExpectedConditions.elementToBeClickable(element));
+
+                    // Perform the action
+                    switch (action.getActionType()) {
+                        case CLICK:
+                            element.click();
+                            break;
+                        case SENDKEYS:
+                            element.sendKeys(action.getInputValue());
+                            break;
+                        case VERIFY:
+                            Assert.assertTrue(element.isDisplayed());
+                            break;
+                        case SWIPE:
+                            performSwipe(element, action);
+                            break;
+                    }
+                    return;
+                }
+            } catch (Exception e) {
+                lastException = e;
+                System.err.println("Attempt " + (i + 1) + " failed: " + e.getMessage());
+                try {
+                    Thread.sleep(waitBetweenRetries);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+
+        throw new RuntimeException("Failed to execute action after " + maxRetries + " attempts", lastException);
+    }
+
+    private void handleVisualAction(TestAction action) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode coordinates = objectMapper.readTree(action.getLocatorValue());
+
+        // Calculate center point of the element
+        int centerX = coordinates.get("x").asInt() + (coordinates.get("width").asInt() / 2);
+        int centerY = coordinates.get("y").asInt() + (coordinates.get("height").asInt() / 2);
+
+        switch (action.getActionType()) {
+            case CLICK:
+                // Using W3C Actions instead of TouchAction
+                new Actions(driver)
+                        .moveToLocation(centerX, centerY)
+                        .click()
+                        .perform();
+
+                // Alternative approach using JavascriptExecutor if above doesn't work
+            /*String script = String.format(
+                "mobile: clickGesture",
+                "{ x: %d, y: %d }",
+                centerX,
+                centerY
+            );
+            ((JavascriptExecutor) driver).executeScript(script);*/
+                break;
+
+            case VERIFY:
+                double confidence = action.getConfidence();
+                Assert.assertTrue(confidence >= 0.8, "Visual match confidence too low: " + confidence);
+                break;
+
+            default:
+                throw new UnsupportedOperationException(
+                        "Action type " + action.getActionType() + " not supported for visual strategy"
+                );
+        }
+    }
+
+    private By getBy(LocatorStrategy strategy, String value) {
+        switch (strategy) {
+            case ID:
+                return By.id(value);
+            case XPATH:
+                return By.xpath(value);
+            case ACCESSIBILITY_ID:
+                return MobileBy.AccessibilityId(value);
+            case CLASS_NAME:
+                return By.className(value);
+            case UISELECTOR:
+                return MobileBy.AndroidUIAutomator(value);
+            default:
+                throw new IllegalArgumentException("Unsupported locator strategy: " + strategy);
+        }
+    }
+
+    /*private void performSwipe(TestAction action) {
+        // Get the element to swipe on
+        WebElement element = findElement(action);
+
+        // Get element location and size
+        int centerX = element.getLocation().getX() + (element.getSize().getWidth() / 2);
+        int centerY = element.getLocation().getY() + (element.getSize().getHeight() / 2);
+
+        int startX = centerX;
+        int startY = centerY + 200;  // Start from bottom
+        int endX = centerX;
+        int endY = centerY - 200;    // End at top
+
+        // Create touch action
+        PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
+        Sequence swipe = new Sequence(finger, 1);
+
+        // Move finger into position
+        swipe.addAction(finger.createPointerMove(Duration.ofMillis(0),
+                PointerInput.Origin.viewport(), startX, startY));
+
+        // Press down
+        swipe.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+
+        // Move to end position
+        swipe.addAction(finger.createPointerMove(Duration.ofMillis(1000),
+                PointerInput.Origin.viewport(), endX, endY));
+
+        // Release finger
+        swipe.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+
+        // Perform the action
+        driver.perform(Arrays.asList(swipe));
+    }*/
+    private void performSwipe(WebElement element, TestAction action) {
+        try {
+            Point location = element.getLocation();
+            Dimension size = element.getSize();
+
+            // Get the center point of the element
+            Point center = new Point(
+                    location.getX() + size.getWidth() / 2,
+                    location.getY() + size.getHeight() / 2
+            );
+
+            // Default offset for swipe (can be customized based on needs)
+            int horizontalOffset = size.getWidth() / 2;
+            int verticalOffset = size.getHeight() / 2;
+
+            TouchAction<?> touchAction = new TouchAction<>((PerformsTouchActions) driver);
+
+            // Determine swipe direction from action input if provided
+            String direction = action.getInputValue() != null ?
+                    action.getInputValue().toUpperCase() : "LEFT"; // Default to LEFT swipe
+
+            switch (direction) {
+                case "LEFT":
+                    touchAction
+                            .press(PointOption.point(center.getX() + horizontalOffset, center.getY()))
+                            .waitAction(WaitOptions.waitOptions(Duration.ofMillis(300)))
+                            .moveTo(PointOption.point(center.getX() - horizontalOffset, center.getY()))
+                            .release()
+                            .perform();
+                    break;
+
+                case "RIGHT":
+                    touchAction
+                            .press(PointOption.point(center.getX() - horizontalOffset, center.getY()))
+                            .waitAction(WaitOptions.waitOptions(Duration.ofMillis(300)))
+                            .moveTo(PointOption.point(center.getX() + horizontalOffset, center.getY()))
+                            .release()
+                            .perform();
+                    break;
+
+                case "UP":
+                    touchAction
+                            .press(PointOption.point(center.getX(), center.getY() + verticalOffset))
+                            .waitAction(WaitOptions.waitOptions(Duration.ofMillis(300)))
+                            .moveTo(PointOption.point(center.getX(), center.getY() - verticalOffset))
+                            .release()
+                            .perform();
+                    break;
+
+                case "DOWN":
+                    touchAction
+                            .press(PointOption.point(center.getX(), center.getY() - verticalOffset))
+                            .waitAction(WaitOptions.waitOptions(Duration.ofMillis(300)))
+                            .moveTo(PointOption.point(center.getX(), center.getY() + verticalOffset))
+                            .release()
+                            .perform();
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Invalid swipe direction: " + direction);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to perform swipe action", e);
+        }
+    }
+
+    private WebElement findElement(TestAction action) {
+        switch (action.getLocatorStrategy()) {
+            case ID:
+                return driver.findElement(By.id(action.getLocatorValue()));
+            case XPATH:
+                return driver.findElement(By.xpath(action.getLocatorValue()));
+            case ACCESSIBILITY_ID:
+                return driver.findElement(AppiumBy.accessibilityId(action.getLocatorValue()));
+            case ANDROID_UIAUTOMATOR:
+                return driver.findElement(AppiumBy.androidUIAutomator(
+                        "new UiSelector().text(\"" + action.getLocatorValue() + "\")"));
+            case CLASS_NAME:
+                return driver.findElement(By.className(action.getLocatorValue()));
+            case VISUAL:
+                // Implement visual location strategy using Appium's image recognition
+                return driver.findElement(AppiumBy.image(action.getLocatorValue()));
+            default:
+                throw new IllegalArgumentException("Unsupported locator strategy");
+        }
+    }
+}
