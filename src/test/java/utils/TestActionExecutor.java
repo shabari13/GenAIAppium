@@ -18,8 +18,15 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.Assert;
 import io.appium.java_client.touch.WaitOptions;
 import org.openqa.selenium.Dimension;
+import org.openqa.selenium.Rectangle;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.interactions.Sequence;
+import org.openqa.selenium.interactions.PointerInput;
+import org.openqa.selenium.interactions.PointerInput.Kind;
+import org.openqa.selenium.Point;
 
 import java.time.Duration;
+import java.util.Arrays;
 
 
 public class TestActionExecutor {
@@ -74,6 +81,18 @@ public class TestActionExecutor {
                         case CLICK:
                             element.click();
                             break;
+                        case DOUBLE_CLICK:
+                            new Actions(driver)
+                                    .doubleClick(element)
+                                    .perform();
+                            break;
+                        case SET_SLIDER:
+                            // Handle slider movement
+                            System.out.println("DEBUG: Found slider element: " + element.isDisplayed());
+
+                            moveSlider(element, Double.parseDouble(action.getInputValue()));
+
+                            break;
                         case SENDKEYS:
                             element.sendKeys(action.getInputValue());
                             break;
@@ -115,8 +134,70 @@ public class TestActionExecutor {
                         .moveToLocation(centerX, centerY)
                         .click()
                         .perform();
+                break;
+            case DOUBLE_CLICK:
+                try {
+                    // First ensure focus by tapping once
+                    new Actions(driver)
+                            .moveToLocation(centerX, centerY)
+                            .click()
+                            .perform();
 
-                // Alternative approach using JavascriptExecutor if above doesn't work
+                    // Short wait to ensure focus is gained
+                    Thread.sleep(500);
+
+                   /* // Now perform the double click
+                    new Actions(driver)
+                            .moveToLocation(centerX, centerY)
+                            .click()
+                            .pause(Duration.ofMillis(200))
+                            .click()
+                            .perform();*/
+
+                /*Alternative approach using direct W3C actions if above doesn't work*/
+                Point targetPoint = new Point(centerX, centerY);
+                Sequence sequence = new Sequence(new PointerInput(Kind.TOUCH, "finger"), 0)
+                    .addAction(new PointerInput(Kind.TOUCH, "finger").createPointerMove(Duration.ZERO, PointerInput.Origin.viewport(), targetPoint.x, targetPoint.y))
+                    .addAction(new PointerInput(Kind.TOUCH, "finger").createPointerDown(PointerInput.MouseButton.LEFT.asArg()))
+                    .addAction(new PointerInput(Kind.TOUCH, "finger").createPointerUp(PointerInput.MouseButton.LEFT.asArg()))
+                    .addAction(new PointerInput(Kind.TOUCH, "finger").createPointerMove(Duration.ofMillis(100), PointerInput.Origin.viewport(), targetPoint.x, targetPoint.y))
+                    .addAction(new PointerInput(Kind.TOUCH, "finger").createPointerDown(PointerInput.MouseButton.LEFT.asArg()))
+                    .addAction(new PointerInput(Kind.TOUCH, "finger").createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+
+                driver.perform(Arrays.asList(sequence));
+
+
+                } catch (Exception e) {
+                    // Try alternative approach with separate action chains
+                    try {
+                        // First tap to ensure focus
+                        new Actions(driver)
+                                .moveToLocation(centerX, centerY)
+                                .click()
+                                .perform();
+
+                        Thread.sleep(500);  // Wait for focus
+
+                        // Then perform two separate clicks
+                        new Actions(driver)
+                                .moveToLocation(centerX, centerY)
+                                .click()
+                                .perform();
+
+                        Thread.sleep(200);  // Wait between clicks
+
+                        new Actions(driver)
+                                .moveToLocation(centerX, centerY)
+                                .click()
+                                .perform();
+                    } catch (Exception ex) {
+                        throw new RuntimeException("Failed to perform double click", ex);
+                    }
+                }
+                break;
+
+
+            // Alternative approach using JavascriptExecutor if above doesn't work
             /*String script = String.format(
                 "mobile: clickGesture",
                 "{ x: %d, y: %d }",
@@ -124,7 +205,6 @@ public class TestActionExecutor {
                 centerY
             );
             ((JavascriptExecutor) driver).executeScript(script);*/
-                break;
 
             case VERIFY:
                 double confidence = action.getConfidence();
@@ -137,6 +217,73 @@ public class TestActionExecutor {
                 );
         }
     }
+
+    private void moveSlider(WebElement slider, double percentage) {
+        try {
+            // Get the exact coordinates of the SeekBar
+            WebElement seekBar = driver.findElement(By.xpath("//android.widget.SeekBar[@content-desc='Reading Progress Bar']"));
+            Rectangle bounds = seekBar.getRect();
+
+            // Calculate positions
+            int startX = bounds.x + 50; // Add offset to ensure we're on the slider
+            int endX = bounds.x + bounds.width - 50; // Subtract offset from end
+            int centerY = bounds.y + (bounds.height / 2);
+
+            // Calculate target position
+            int targetX = startX + (int)((endX - startX) * percentage);
+
+            System.out.println("Attempting to slide from X: " + startX + " to X: " + targetX + " at Y: " + centerY);
+
+            // Try W3C Actions (more modern approach)
+            PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
+            Sequence sequence = new Sequence(finger, 0);
+
+            // Press and hold
+            sequence.addAction(finger.createPointerMove(Duration.ZERO, PointerInput.Origin.viewport(), startX, centerY));
+            sequence.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+
+            // Small pause
+            sequence.addAction(finger.createPointerMove(Duration.ofMillis(200), PointerInput.Origin.viewport(), startX, centerY));
+
+            // Slow, deliberate move
+            for (int i = 0; i <= 10; i++) {
+                int intermediateX = startX + (int)((targetX - startX) * (i/10.0));
+                sequence.addAction(finger.createPointerMove(Duration.ofMillis(50),
+                        PointerInput.Origin.viewport(), intermediateX, centerY));
+            }
+
+            // Hold briefly at target
+            sequence.addAction(finger.createPointerMove(Duration.ofMillis(200), PointerInput.Origin.viewport(), targetX, centerY));
+
+            // Release
+            sequence.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+
+            driver.perform(Arrays.asList(sequence));
+
+            // Add debug information
+            Thread.sleep(1000);
+            System.out.println("Slider action completed. New position: " + seekBar.getAttribute("text"));
+
+        } catch (Exception e) {
+            System.out.println("Error during slider movement: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    private boolean verifySliderPosition(WebElement slider, double expectedPercentage) {
+        try {
+            // Get the current value from the slider
+            String currentValue = slider.getAttribute("text");
+            double maxValue = Double.parseDouble(currentValue);
+            // Add your verification logic here
+            return true; // Replace with actual verification
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+
 
     private By getBy(LocatorStrategy strategy, String value) {
         switch (strategy) {

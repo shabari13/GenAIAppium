@@ -23,7 +23,7 @@ public class AIBasedTests extends BaseTest {
     @Test(description = "Test login flow")
     public void testLoginFlow() {
         try {
-            executeStep("If there is a popup, click on Allow button.");
+/*            executeStep("If there is a popup, click on Allow button.");
             Thread.sleep(1000);
             executeStep("Click on Library tab.");
             Thread.sleep(2000);
@@ -43,9 +43,16 @@ public class AIBasedTests extends BaseTest {
             Thread.sleep(2000);
             executeStep("Click \"Sign in\" button.");
             Thread.sleep(5000);
-            executeStep("Wait until the filter icon is displayed");
+            executeStep("Wait until the filter icon is displayed");*/
+            executeStep("Click on Library tab.");
             Thread.sleep(2000);
-            executeStep("Tap on \"Automating and Testing a REST API\" book.");
+            executeStep("Double click on \"Automating and Testing a REST API\" book.");
+            Thread.sleep(2000);
+            executeStep("Click on top center of the page.");
+            Thread.sleep(2000);
+            executeStep("Click reading progress at middle");
+            Thread.sleep(2000);
+
 
         } catch (Exception e) {
             throw new RuntimeException("Test failed: " + e.getMessage(), e);

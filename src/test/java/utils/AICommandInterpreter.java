@@ -203,7 +203,7 @@ public class AICommandInterpreter {
                             "INPUT: [value if ACTION is SENDKEYS]",
                     pageSource, naturalLanguageCommand
             );*/
-
+/*
             String userMessage = String.format(
                     "You are a test automation assistant. You must respond in a specific format with no additional text or explanations.\n\n" +
                             "Based on this page source:\n```\n%s\n```\n\n" +
@@ -221,13 +221,43 @@ public class AICommandInterpreter {
                             "   - Return coordinates as JSON: {\"x\": int, \"y\": int, \"width\": int, \"height\": int}\n" +
                             "4. Always include element type in locator strategy\n\n" +
                             "Respond with ONLY these exact lines (no other text):\n" +
-                            "ACTION: [CLICK/SENDKEYS/SWIPE/VERIFY]\n" +
+                            "ACTION: [CLICK/DOUBLE_CLICK/SENDKEYS/SWIPE/VERIFY/SET_SLIDER]\n" +
                             "STRATEGY: [ID/XPATH/ACCESSIBILITY_ID/VISUAL]\n" +
                             "LOCATOR: [exact locator value or coordinates JSON if VISUAL]\n" +
                             "INPUT: [value if ACTION is SENDKEYS]\n" +
                             "CONFIDENCE: [0-1 score if STRATEGY is VISUAL]",
                     pageSource, screenshotSection, naturalLanguageCommand
+            );*/
+
+            String userMessage = String.format(
+                    "You are a test automation assistant. You must respond in a specific format with no additional text or explanations.\n\n" +
+                            "Based on this page source:\n```\n%s\n```\n\n" +
+                            "%s" + // Screenshot section
+                            "And this command: %s\n\n" +
+                            "Follow these rules:\n" +
+                            "1. For buttons:\n" +
+                            "   - Always use XPath that combines multiple attributes (class, text, and resource-id)\n" +
+                            "   - Ensure clickable='true' is included in the locator\n" +
+                            "2. For text fields:\n" +
+                            "   - Use XPath with hint attribute for input fields\n" +
+                            "   - Include class name 'android.widget.EditText' in the locator\n" +
+                            "3. For book covers and items:\n" +
+                            "   - Use VISUAL strategy with confidence score\n" +
+                            "   - Return coordinates as JSON: {\"x\": int, \"y\": int, \"width\": int, \"height\": int}\n" +
+                            "4. For SeekBar/slider elements:\n" +   // Add this new rule
+                            "   - Use SET_SLIDER action type\n" +
+                            "   - Input value must be between 0 and 1\n" +
+                            "   - Use XPath with android.widget.SeekBar class\n" +
+                            "5. Always include element type in locator strategy\n\n" +
+                            "Respond with ONLY these exact lines (no other text):\n" +
+                            "ACTION: [CLICK/DOUBLE_CLICK/SENDKEYS/SWIPE/VERIFY/SET_SLIDER]\n" +
+                            "STRATEGY: [ID/XPATH/ACCESSIBILITY_ID/VISUAL]\n" +
+                            "LOCATOR: [exact locator value or coordinates JSON if VISUAL]\n" +
+                            "INPUT: [value if ACTION is SENDKEYS or SET_SLIDER]\n" +
+                            "CONFIDENCE: [0-1 score if STRATEGY is VISUAL]",
+                    pageSource, screenshotSection, naturalLanguageCommand
             );
+
 
             // Build the request body
             requestBody.putArray("messages")

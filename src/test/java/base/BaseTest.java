@@ -39,7 +39,7 @@ public class BaseTest {
         caps.setCapability("platformName", "Android");
         caps.setCapability("appium:deviceName", "emulator-5554");
         caps.setCapability("appium:automationName", "UiAutomator2");
-        caps.setCapability("appium:noReset", false);
+        caps.setCapability("appium:noReset", true);
         caps.setCapability("appium:fullReset", false);
         caps.setCapability("appium:appPackage", "com.amazon.kindle");
         caps.setCapability("appium:appActivity", "com.amazon.kindle.UpgradePage");
