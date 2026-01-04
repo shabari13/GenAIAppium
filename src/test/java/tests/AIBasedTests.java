@@ -50,7 +50,16 @@ public class AIBasedTests extends BaseTest {
             Thread.sleep(2000);
             executeStep("Click on top center of the page.");
             Thread.sleep(2000);
-            executeStep("Click reading progress at middle");
+            executeStep("Click on Aa menu.");
+            //executeStep("Drag reading progress to 58 percent.");
+            Thread.sleep(2000);
+            executeStep("Click on Layout tab.");
+            Thread.sleep(2000);
+            //executeStep("Turn on Continuous Scrolling.");
+            //Thread.sleep(2000);
+            executeStep("Swipe UP in the Layout panel");
+            Thread.sleep(2000);
+            executeStep("Turn on Orientation Lock.");
             Thread.sleep(2000);
 
 

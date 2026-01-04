@@ -248,7 +248,11 @@ public class AICommandInterpreter {
                             "   - Use SET_SLIDER action type\n" +
                             "   - Input value must be between 0 and 1\n" +
                             "   - Use XPath with android.widget.SeekBar class\n" +
-                            "5. Always include element type in locator strategy\n\n" +
+                            "5. For SWIPE actions:\n" +
+                            "   - Input must be one of: UP, DOWN, LEFT, RIGHT\n" +
+                            "   - For scrollable content, use ScrollView's resource-id in XPath\n" +
+                            "   - Example: //android.widget.ScrollView[@resource-id='com.amazon.kindle:id/view_options_tab_scrollview_layout']\n" +
+                            "6. Always include element type in locator strategy\n\n" +
                             "Respond with ONLY these exact lines (no other text):\n" +
                             "ACTION: [CLICK/DOUBLE_CLICK/SENDKEYS/SWIPE/VERIFY/SET_SLIDER]\n" +
                             "STRATEGY: [ID/XPATH/ACCESSIBILITY_ID/VISUAL]\n" +

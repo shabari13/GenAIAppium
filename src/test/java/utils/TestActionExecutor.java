@@ -338,65 +338,39 @@ public class TestActionExecutor {
     }*/
     private void performSwipe(WebElement element, TestAction action) {
         try {
-            Point location = element.getLocation();
-            Dimension size = element.getSize();
+            // Get element bounds
+            Rectangle bounds = element.getRect();
 
-            // Get the center point of the element
-            Point center = new Point(
-                    location.getX() + size.getWidth() / 2,
-                    location.getY() + size.getHeight() / 2
-            );
+            // Calculate swipe coordinates
+            int startX = bounds.x + (bounds.width / 2);
+            int endX = startX; // Keep X constant for vertical swipe
+            int startY = bounds.y + (bounds.height * 3/4); // Start from 75% down
+            int endY = bounds.y + (bounds.height / 4);     // End at 25% up
 
-            // Default offset for swipe (can be customized based on needs)
-            int horizontalOffset = size.getWidth() / 2;
-            int verticalOffset = size.getHeight() / 2;
+            // Create W3C Actions sequence
+            new Actions(driver)
+                    .moveToElement(element)
+                    .clickAndHold()
+                    .moveByOffset(0, -bounds.height/2) // Move up by half the height
+                    .release()
+                    .perform();
 
-            TouchAction<?> touchAction = new TouchAction<>((PerformsTouchActions) driver);
+            // Alternative approach using Sequence
+            PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
+            Sequence swipe = new Sequence(finger, 1);
 
-            // Determine swipe direction from action input if provided
-            String direction = action.getInputValue() != null ?
-                    action.getInputValue().toUpperCase() : "LEFT"; // Default to LEFT swipe
+            swipe.addAction(finger.createPointerMove(Duration.ofMillis(0),
+                    PointerInput.Origin.viewport(), startX, startY));
+            swipe.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+            swipe.addAction(finger.createPointerMove(Duration.ofMillis(600),
+                    PointerInput.Origin.viewport(), endX, endY));
+            swipe.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
 
-            switch (direction) {
-                case "LEFT":
-                    touchAction
-                            .press(PointOption.point(center.getX() + horizontalOffset, center.getY()))
-                            .waitAction(WaitOptions.waitOptions(Duration.ofMillis(300)))
-                            .moveTo(PointOption.point(center.getX() - horizontalOffset, center.getY()))
-                            .release()
-                            .perform();
-                    break;
+            ((AppiumDriver) driver).perform(Arrays.asList(swipe));
 
-                case "RIGHT":
-                    touchAction
-                            .press(PointOption.point(center.getX() - horizontalOffset, center.getY()))
-                            .waitAction(WaitOptions.waitOptions(Duration.ofMillis(300)))
-                            .moveTo(PointOption.point(center.getX() + horizontalOffset, center.getY()))
-                            .release()
-                            .perform();
-                    break;
+            // Wait for animation
+            Thread.sleep(1000);
 
-                case "UP":
-                    touchAction
-                            .press(PointOption.point(center.getX(), center.getY() + verticalOffset))
-                            .waitAction(WaitOptions.waitOptions(Duration.ofMillis(300)))
-                            .moveTo(PointOption.point(center.getX(), center.getY() - verticalOffset))
-                            .release()
-                            .perform();
-                    break;
-
-                case "DOWN":
-                    touchAction
-                            .press(PointOption.point(center.getX(), center.getY() - verticalOffset))
-                            .waitAction(WaitOptions.waitOptions(Duration.ofMillis(300)))
-                            .moveTo(PointOption.point(center.getX(), center.getY() + verticalOffset))
-                            .release()
-                            .perform();
-                    break;
-
-                default:
-                    throw new IllegalArgumentException("Invalid swipe direction: " + direction);
-            }
         } catch (Exception e) {
             throw new RuntimeException("Failed to perform swipe action", e);
         }
