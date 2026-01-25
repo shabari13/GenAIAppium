@@ -2,9 +2,12 @@ package base;
 
 import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.android.AndroidDriver;
+import io.appium.java_client.ios.IOSDriver;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Optional;
+import org.testng.annotations.Parameters;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
@@ -33,9 +36,25 @@ public class BaseTest {
         nettyLogger.setLevel(Level.ERROR);
     }
 
+    @Parameters({"platform"})
     @BeforeClass
-    public void setup() throws MalformedURLException {
+    public void setup(@Optional("android") String platform) throws MalformedURLException {
+        platform = platform.toLowerCase();
+
         DesiredCapabilities caps = new DesiredCapabilities();
+
+        if (platform.equals("android")) {
+            setupAndroidDriver(caps);
+        } else if (platform.equals("ios")) {
+            setupIOSDriver(caps);
+        } else {
+            throw new IllegalArgumentException("Invalid platform. Use 'android' or 'ios'");
+        }
+
+        initializeBedrockClient();
+    }
+
+    private void setupAndroidDriver(DesiredCapabilities caps) throws MalformedURLException {
         caps.setCapability("platformName", "Android");
         caps.setCapability("appium:deviceName", "emulator-5554");
         caps.setCapability("appium:automationName", "UiAutomator2");
@@ -44,12 +63,30 @@ public class BaseTest {
         caps.setCapability("appium:appPackage", "com.amazon.kindle");
         caps.setCapability("appium:appActivity", "com.amazon.kindle.UpgradePage");
 
-        driver = new AndroidDriver(
-                new URL("http://127.0.0.1:4723"), caps);
+        driver = new AndroidDriver(new URL("http://127.0.0.1:4723"), caps);
+    }
 
+    private void setupIOSDriver(DesiredCapabilities caps) throws MalformedURLException {
+        caps.setCapability("platformName", "iOS");
+        caps.setCapability("appium:deviceName", "iPhone Simulator");
+        caps.setCapability("appium:automationName", "XCUITest");
+        caps.setCapability("appium:platformVersion", "18.5"); // Update with your iOS version
+        caps.setCapability("appium:noReset", false);
+        caps.setCapability("appium:fullReset", false);
+        caps.setCapability("appium:bundleId", "com.amazon.LassenDev");
+        caps.setCapability("appium:udid", "CAA5A29A-2CA8-41C2-BD98-0A23853A4D6A");
+
+        // Update with your app's bundle ID
+        // If using a .app file locally
+        // caps.setCapability("appium:app", "/path/to/your/app.app");
+
+        driver = new IOSDriver(new URL("http://127.0.0.1:4723"), caps);
+    }
+
+    private void initializeBedrockClient() {
         ProfileCredentialsProvider.create();
         bedrockClient = BedrockRuntimeClient.builder()
-                .region(Region.US_EAST_1)  // Make sure this matches your model's region
+                .region(Region.US_EAST_1)
                 .credentialsProvider(DefaultCredentialsProvider.create())
                 .build();
     }
@@ -70,12 +107,9 @@ public class BaseTest {
             e.printStackTrace();
         }
     }
-    /**
-     * Refresh AWS credentials by creating a new credentials provider and client
-     */
+
     protected void refreshCredentials() {
         try {
-            // Close existing resources
             if (credentialsProvider != null) {
                 credentialsProvider.close();
             }
@@ -83,7 +117,6 @@ public class BaseTest {
                 bedrockClient.close();
             }
 
-            // Create new credentials provider and client
             credentialsProvider = ProfileCredentialsProvider.create();
             bedrockClient = BedrockRuntimeClient.builder()
                     .region(Region.US_EAST_1)

@@ -8,11 +8,14 @@ import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.MobileBy;
 import io.appium.java_client.PerformsTouchActions;
 import io.appium.java_client.TouchAction;
+import io.appium.java_client.remote.SupportsContextSwitching;
 import io.appium.java_client.touch.offset.PointOption;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Point;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.Assert;
@@ -27,6 +30,8 @@ import org.openqa.selenium.Point;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 
 
 public class TestActionExecutor {
@@ -38,23 +43,7 @@ public class TestActionExecutor {
         this.objectMapper = new ObjectMapper();
     }
 
-    public void executeAction(TestAction action) {
-       /* WebElement element = findElement(action);
-
-        switch(action.getActionType()) {
-            case CLICK:
-                element.click();
-                break;
-            case SENDKEYS:
-                element.sendKeys(action.getInputValue());
-                break;
-            case VERIFY:
-                Assert.assertTrue(element.isDisplayed());
-                break;
-            case SWIPE:
-                performSwipe(action);
-                break;
-        }*/
+ /*   public void executeAction(TestAction action) {
         int maxRetries = 1;
         long waitBetweenRetries = 1000;
         Exception lastException = null;
@@ -117,8 +106,136 @@ public class TestActionExecutor {
         }
 
         throw new RuntimeException("Failed to execute action after " + maxRetries + " attempts", lastException);
-    }
+    }*/
 
+    public void executeAction(TestAction action) {
+        int maxRetries = 3;
+        long waitBetweenRetries = 1000;
+        Exception lastException = null;
+
+        System.out.println("Executing action: " + action);
+
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+                if (action.getLocatorStrategy() == LocatorStrategy.VISUAL) {
+                    handleVisualAction(action);
+                    return;
+                } else {
+                    // Switch to WebView context if needed
+                    try {
+                        if (driver instanceof SupportsContextSwitching) {
+                            SupportsContextSwitching contextAwareDriver = (SupportsContextSwitching) driver;
+                            Set<String> contextHandles = contextAwareDriver.getContextHandles();
+                            System.out.println("Available contexts: " + contextHandles);
+
+                            for (String context : contextHandles) {
+                                if (context.contains("WEBVIEW")) {
+                                    contextAwareDriver.context(context);
+                                    System.out.println("Switched to context: " + context);
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.out.println("Error switching context: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+
+                    // Rest of your existing code...
+                    By locator = getBy(action.getLocatorStrategy(), action.getLocatorValue());
+                    WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+
+                    // Ensure element is visible and clickable
+                    wait.until(ExpectedConditions.elementToBeClickable(element));
+
+                    // Perform the action
+                    switch (action.getActionType()) {
+                        case CLICK:
+                            element.click();
+                            break;
+                        case DOUBLE_CLICK:
+                            new Actions(driver)
+                                    .doubleClick(element)
+                                    .perform();
+                            break;
+                        case SET_SLIDER:
+                            // Handle slider movement
+                            System.out.println("DEBUG: Found slider element: " + element.isDisplayed());
+
+                            moveSlider(element, Double.parseDouble(action.getInputValue()));
+
+                            break;
+                        case SENDKEYS:
+                            element.sendKeys(action.getInputValue());
+                            break;
+                        case TYPE:
+                            try {
+                                // First attempt - standard sendKeys
+                                element.clear();
+                                element.sendKeys(action.getInputValue());
+                            } catch (Exception e1) {
+                                try {
+                                    // Second attempt - using Actions class
+                                    new Actions(driver)
+                                            .moveToElement(element)
+                                            .click()
+                                            .sendKeys(action.getInputValue())
+                                            .perform();
+                                } catch (Exception e2) {
+                                    try {
+                                        // Third attempt - using JavaScript
+                                        ((JavascriptExecutor) driver).executeScript(
+                                                "arguments[0].value=arguments[1]",
+                                                element,
+                                                action.getInputValue()
+                                        );
+                                    } catch (Exception e3) {
+                                        // Fourth attempt - using different locator strategies
+                                        try {
+                                            // Try by accessibility ID
+                                            WebElement elementByAccess = driver.findElement(
+                                                    By.xpath("//XCUIElementTypeTextField[@label='Enter mobile number or email']")
+                                            );
+                                            elementByAccess.sendKeys(action.getInputValue());
+                                        } catch (Exception e4) {
+                                            // Try by class name and index
+                                            List<WebElement> textFields = driver.findElements(
+                                                    By.className("XCUIElementTypeTextField")
+                                            );
+                                            if (!textFields.isEmpty()) {
+                                                textFields.get(0).sendKeys(action.getInputValue());
+                                            } else {
+                                                throw new RuntimeException("Could not find text field using any method");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        case VERIFY:
+                            Assert.assertTrue(element.isDisplayed());
+                            break;
+                        case SWIPE:
+                            performSwipe(element, action);
+                            break;
+                    }
+                    return;
+                }
+            } catch (Exception e) {
+                lastException = e;
+                System.err.println("Attempt " + (i + 1) + " failed: " + e.getMessage());
+                try {
+                    Thread.sleep(waitBetweenRetries);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+
+        throw new RuntimeException("Failed to execute action after " + maxRetries + " attempts", lastException);
+    }
     private void handleVisualAction(TestAction action) throws JsonProcessingException {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode coordinates = objectMapper.readTree(action.getLocatorValue());
@@ -221,7 +338,7 @@ public class TestActionExecutor {
     private void moveSlider(WebElement slider, double percentage) {
         try {
             // Get the exact coordinates of the SeekBar
-            WebElement seekBar = driver.findElement(By.xpath("//android.widget.SeekBar[@content-desc='Reading Progress Bar']"));
+            WebElement seekBar = slider ;//driver.findElement(By.xpath("//android.widget.SeekBar[@content-desc='Reading Progress Bar']"));
             Rectangle bounds = seekBar.getRect();
 
             // Calculate positions
@@ -302,40 +419,7 @@ public class TestActionExecutor {
         }
     }
 
-    /*private void performSwipe(TestAction action) {
-        // Get the element to swipe on
-        WebElement element = findElement(action);
 
-        // Get element location and size
-        int centerX = element.getLocation().getX() + (element.getSize().getWidth() / 2);
-        int centerY = element.getLocation().getY() + (element.getSize().getHeight() / 2);
-
-        int startX = centerX;
-        int startY = centerY + 200;  // Start from bottom
-        int endX = centerX;
-        int endY = centerY - 200;    // End at top
-
-        // Create touch action
-        PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
-        Sequence swipe = new Sequence(finger, 1);
-
-        // Move finger into position
-        swipe.addAction(finger.createPointerMove(Duration.ofMillis(0),
-                PointerInput.Origin.viewport(), startX, startY));
-
-        // Press down
-        swipe.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
-
-        // Move to end position
-        swipe.addAction(finger.createPointerMove(Duration.ofMillis(1000),
-                PointerInput.Origin.viewport(), endX, endY));
-
-        // Release finger
-        swipe.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
-
-        // Perform the action
-        driver.perform(Arrays.asList(swipe));
-    }*/
     private void performSwipe(WebElement element, TestAction action) {
         try {
             // Get element bounds

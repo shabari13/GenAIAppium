@@ -16,14 +16,78 @@ public class AIBasedTests extends BaseTest {
     @BeforeMethod
     public void setupTest() {
         refreshCredentials();
-        interpreter = new AICommandInterpreter(bedrockClient);
+        interpreter = new AICommandInterpreter(driver, bedrockClient);
         executor = new TestActionExecutor(driver);
     }
 
-    @Test(description = "Test login flow")
-    public void testLoginFlow() {
+   // @Test(description = "Test login flow - iOS")
+    public void testLoginFlowIOS() {
         try {
-/*            executeStep("If there is a popup, click on Allow button.");
+            Thread.sleep(1000);
+            executeStep("Tap on text field with hint \"Enter mobile number or email\"");
+            Thread.sleep(2000);
+            executeStep("Type \"shabars+201@amazon.com\" in the text field which has a hint \"Enter mobile number or email\".");
+
+            Thread.sleep(2000);
+
+            executeStep("Tap on the \"Continue\" button.");
+            Thread.sleep(2000);
+            executeStep("Tap on \"Amazon password\" text field.");
+            Thread.sleep(2000);
+            executeStep("Type \"labone2six\" in the password text field.");
+            Thread.sleep(2000);
+            executeStep("Click \"Sign in\" button.");
+            Thread.sleep(5000);
+            //executeStep("Wait until the filter icon is displayed");
+
+            executeStep("Click on Library tab");
+            Thread.sleep(2000);
+            //executeStep("Wait for \"Enter mobile number or email\" text is present.");
+            /*executeStep("Click on the text field.");
+            Thread.sleep(2000);
+            executeStep("Type \"shabars+201@amazon.com\" in the text field which has a hint \"Enter mobile number or email\".");
+            executeStep("Tap on the \"Continue\" button.");
+            Thread.sleep(2000);
+            executeStep("Tap on \"Amazon password\" text field.");
+            Thread.sleep(2000);
+            executeStep("Type \"labone2six\" in the password text field.");
+            Thread.sleep(2000);
+            executeStep("Click \"Sign in\" button.");
+            Thread.sleep(5000);
+            executeStep("Wait until the filter icon is displayed");
+            */// iOS typically uses different selectors and interaction patterns
+           /* executeStep("Click on Library tab");
+            Thread.sleep(2000);*/
+
+          /*  executeStep("Select book titled 'Automating and Testing a REST API' using XCUIElementTypeStaticText");
+            Thread.sleep(2000);
+
+            // iOS often uses different gesture patterns
+            executeStep("Tap center of screen to show reader controls");
+            Thread.sleep(2000);
+
+            // iOS specific font/display controls
+            executeStep("Tap on text appearance button ('Aa')");
+            Thread.sleep(2000);
+
+            // iOS specific slider interactions
+            executeStep("Adjust brightness slider to maximum value");
+            Thread.sleep(2000);
+
+            executeStep("Set brightness slider to 50%");
+            Thread.sleep(2000);
+
+            // iOS specific switch/toggle
+            executeStep("Toggle Auto-Brightness switch");*/
+
+        } catch (Exception e) {
+            throw new RuntimeException("iOS Test failed: " + e.getMessage(), e);
+        }
+    }
+    @Test(description = "Test login flow")
+    public void testLoginFlowAndroid() {
+        try {
+            executeStep("If there is a popup, click on Allow button.");
             Thread.sleep(1000);
             executeStep("Click on Library tab.");
             Thread.sleep(2000);
@@ -43,7 +107,7 @@ public class AIBasedTests extends BaseTest {
             Thread.sleep(2000);
             executeStep("Click \"Sign in\" button.");
             Thread.sleep(5000);
-            executeStep("Wait until the filter icon is displayed");*/
+            executeStep("Wait until the filter icon is displayed");
             executeStep("Click on Library tab.");
             Thread.sleep(2000);
             executeStep("Double click on \"Automating and Testing a REST API\" book.");
@@ -53,14 +117,19 @@ public class AIBasedTests extends BaseTest {
             executeStep("Click on Aa menu.");
             //executeStep("Drag reading progress to 58 percent.");
             Thread.sleep(2000);
-            executeStep("Click on Layout tab.");
-            Thread.sleep(2000);
+            //executeStep("Click on Layout tab.");
+            //Thread.sleep(2000);
             //executeStep("Turn on Continuous Scrolling.");
             //Thread.sleep(2000);
-            executeStep("Swipe UP in the Layout panel");
+            //executeStep("Swipe UP in the Layout panel");
+            //Thread.sleep(2000);
+            //executeStep("Turn on Orientation Lock.");
+            //Thread.sleep(2000);
+            executeStep("Drag brightness till the end");
             Thread.sleep(2000);
-            executeStep("Turn on Orientation Lock.");
+            executeStep("Drag brightness to middle");
             Thread.sleep(2000);
+            executeStep("Check the Auto checkbox");
 
 
         } catch (Exception e) {
@@ -68,15 +137,16 @@ public class AIBasedTests extends BaseTest {
         }
     }
 
+
     private void executeStep(String naturalLanguageStep) throws Exception {
         System.out.println("**************** Executing step: " + naturalLanguageStep);
         try {
             String pageSource = driver.getPageSource();
-            System.out.println("Page source: " + pageSource);
+            //System.out.println("Page source: " + pageSource);
             byte[] screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
 
             //TestAction action = interpreter.interpretCommand(naturalLanguageStep, pageSource);
-            TestAction action = interpreter.interpretCommand(naturalLanguageStep, pageSource, screenshot);
+            TestAction action = interpreter.interpretCommand(naturalLanguageStep, pageSource);//, screenshot);
             System.out.println("Generated TestAction: " + action.toString()); // Add this line
             int maxRetries = 1;
             Exception lastException = null;
@@ -97,7 +167,7 @@ public class AIBasedTests extends BaseTest {
                 refreshCredentials();
                 String pageSource = driver.getPageSource();
                 byte[] screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
-                TestAction action = interpreter.interpretCommand(naturalLanguageStep, pageSource, screenshot);
+                TestAction action = interpreter.interpretCommand(naturalLanguageStep, pageSource); //screenshot);
                 // TestAction action = interpreter.interpretCommand(naturalLanguageStep, pageSource);
                 executor.executeAction(action);
             } else {
